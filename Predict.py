@@ -41,7 +41,7 @@ class Predict:
         self.net_h = np.dot(self.weights_l1.T, x) + self.bias_l1
         self.z = self.sigmoid(self.net_h)
 
-        self.net_o = (np.dot(self.weights_l2.T, self.z) + self.bias_l2) / 100
+        self.net_o = (np.dot(self.weights_l2.T, self.z) + self.bias_l2) 
         self.y = self.net_o
         return self.y
 
@@ -70,45 +70,38 @@ class Predict:
         return 0.5 * (d - self.y) ** 2
 
     def training(self):
-        epochs = 10
+        epochs = 100
         epsilon = 0.0000001
 
         with open("./train.txt", 'w') as f:
             for epoch in range(epochs):
                 print("Epoch:", epoch)
-                loss = []
-                w = []
-                b = []
                 for k in range(self.m):
                     self.propagation(self.x[:, k])
                     e = self.errors(self.d[k])
-                    if np.mean(e) <= epsilon:  # comparing mean error with epsilon
-                        loss.append(np.mean(e))
-                        w = [self.weights_l1, self.weights_l2]
-                        b = [self.bias_l1, self.bias_l2]
-                        all_lst = [loss, w, b]
-                        print(all_lst)
+                    # print(self.predict())
+                    if e <= epsilon: 
+                        print(self.predict())
                         f.write("Epoch %d\n" % epoch)
-                        f.write("Result 1: %d\n" % self.propagation(self.input[0]))
-                        f.write("Result 2: %d\n" % self.propagation(self.input[1]))
-                        f.write("Loss: ")
-                        f.write("______________________")
-                        for i, sublist in enumerate(all_lst):
-                            if i == 0:
-                                f.write("Loss: ")
-                            elif i == 1:
-                                f.write("Weights L1: ")
-                            elif i == 2:
-                                f.write("Weights L2: ")
-                            elif i == 3:
-                                f.write("Bias L1: ")
-                            elif i == 4:
-                                f.write("Bias L2: ")
+                        f.write("Result 1: %d\n" % self.propagation(self.input[0]).item())
+                        f.write("Result 2: %d\n" % self.propagation(self.input[1]).item())
 
-                            # Convert sublist to a NumPy array before using np.array2string()
-                            sublist_array = np.array(sublist)
-                            f.write(np.array2string(sublist_array))  # converting to string before writing
-                            f.write("\n")
+
+
+                    
+                        f.write("Weights L1:\n")
+                        np.savetxt(f, self.weights_l1)
+
+                        f.write("Weights L2:\n")
+                        np.savetxt(f, self.weights_l2)
+
+                        f.write("Bias L1:\n")
+                        np.savetxt(f, self.bias_l1)
+
+                        f.write("Bias L2:\n")
+                        np.savetxt(f, self.bias_l2)
+
+
 
                 self.backpropagation(self.d[k], self.x[:, k])
 

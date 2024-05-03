@@ -1,5 +1,0 @@
-Epoch 2
-Result 1: 4
-Result 2: 4
-Loss: ______________________Loss: [6.2534331e-08]
-Weights L1: 
