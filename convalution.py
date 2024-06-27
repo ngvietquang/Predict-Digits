@@ -10,14 +10,14 @@ class ImageProcessor:
 
     def load_and_preprocess_image(self, img_path):
         img = cv2.imread(img_path)
-        img = cv2.resize(img, (200, 200))
+        img = cv2.resize(img, (115, 115))
         return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     def load_pixel_data(self, data_path):
         data = pd.read_csv(data_path)
         df = pd.DataFrame(data)
         pixel_columns = [f'pixel{i}' for i in range(784)]
-        return df[pixel_columns].values.T / 10000
+        return df[pixel_columns].values.T 
 
     @staticmethod
     def relu_func(m):
@@ -47,8 +47,8 @@ class ImageProcessor:
 
     @classmethod
     def model(cls, img_gray):
-        conv1 = cls.max_pooling(kernel_size=3, img=img_gray, s=1, p=0, pooling_size=7, active_func="relu")
-        conv2 = cls.max_pooling(kernel_size=3, img=img_gray, s=1, p=0, pooling_size=7, active_func="relu")
+        conv1 = cls.max_pooling(kernel_size=3, img=img_gray, s=1, p=0, pooling_size=4, active_func="relu")
+        conv2 = cls.max_pooling(kernel_size=3, img=img_gray, s=1, p=0, pooling_size=4, active_func="relu")
         conv1_flat = conv1.flatten().reshape(784, 1)
         conv2_flat = conv2.flatten().reshape(784, 1)
         return conv1_flat, conv2_flat

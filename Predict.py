@@ -1,116 +1,139 @@
-import cv2
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from convalution import ImageProcessor
-
+import matplotlib.pyplot as plt
+# Load data
 img_path = './picture.png'
-data_path = './modified_data.csv'
-processor = ImageProcessor(img_path=img_path, data_path=data_path)
-
-data =   pd.read_csv(data_path)
+data_path = './train.csv'
+data = pd.read_csv(data_path)
 df = pd.DataFrame(data)
-
-class Predict:
+df.fillna(0, inplace=True)
+y_train = df['label'].values
+x_train = df.drop(columns=['label']).values
+processor = ImageProcessor(img_path=img_path, data_path=data_path)
+class NeuralNetwork:
     def __init__(self):
-        conv1, conv2 = processor.model(processor.img)
-        self.x = processor.pixel_data
-        self.input = np.array([conv1, conv2]).reshape(2, 784)
-        self.d = df.label
-        self.m = len(self.d)
+        self.conv1, self.conv2 = processor.model(processor.img)
+        self.y_train = y_train  # (42000,)
+        self.m = len(self.y_train)
+        self.x_train = x_train.T/255.0  # (784, 42000)
+        self.y = None
 
-        self.weights_l1 = np.random.rand(self.x.shape[0], self.x.shape[0])
-        self.bias_l1 = np.random.rand(self.x.shape[0], 1)
+        self.weight1 = np.random.randn(784, 784)*np.sqrt(2/42000) # (784, 784)
+        self.bias1 = np.random.rand(784, 1)  # (784, 1)
 
-        self.weights_l2 = np.random.rand(self.x.shape[0], 1)
-        self.bias_l2 = np.random.rand(1, 1)
+        self.weight2 = np.random.randn(784, 784)*np.sqrt(2/42000)  # (784, 784)
+        self.bias2 = np.random.rand(784, 1)  # (784, 1)
 
-    def sigmoid(self, net):
-        return 1 / (1 + np.exp(-net))
+        self.weight3 = np.random.randn(784, 10)*np.sqrt(2/42000)  # (784, 10)
+        self.bias3 = np.random.rand(10, 1)   # (10, 1)
 
-    def sigmoid_derivative(self, net):
-        return self.sigmoid(net) * (1 - self.sigmoid(net))
+    def tanh(self,Z):
+        return np.tanh(Z)
+    def tanh_prime(self,Z):
+        return 1 - self.tanh(Z)**2
+    def relu(self, Z):
+        return np.maximum(0, Z)
+    def relu_prime(self, Z):
+        return (Z > 0).astype(int)
+    def softmax(self, Z):
+        Z -= np.max(Z, axis=0, keepdims=True)  # Shift Z to avoid large values
+        e_z = np.exp(Z)
+        return e_z / np.sum(e_z, axis=0, keepdims=True)
 
-    def loss_func(self):
-        loss = sum((self.d[i] - self.propagation(self.x[:, i])) ** 2 for i in range(self.m)) / self.m
-        return loss
+    def forward_propagation(self, x_train):
+        x_train = x_train.reshape(-1, 1)
+        # Hidden Layer 1:
+        self.net_h1 = np.dot(self.weight1.T, x_train) + self.bias1  # (784, 1)
+        self.z1 = self.tanh(self.net_h1)  # (784, 1)
 
-    def propagation(self, x):
-        x = x.reshape(-1, 1)
+        # Hidden Layer 2:
+        self.net_h2 = np.dot(self.weight2.T, self.z1) + self.bias2  # (784, 1)
+        self.z2 = self.relu(self.net_h2)  # (784, 1)
 
-        self.net_h = np.dot(self.weights_l1.T, x) + self.bias_l1
-        self.z = self.sigmoid(self.net_h)
+        # Output Layer:
+        self.net_o = np.dot(self.weight3.T, self.z2) + self.bias3  # (10, 1)
+        self.y = self.softmax(self.net_o)  # (10, 1)
 
-        self.net_o = (np.dot(self.weights_l2.T, self.z) + self.bias_l2) 
-        self.y = self.net_o
         return self.y
 
-    def backpropagation(self, d, x):
-        x = x.reshape(-1, 1)
+    def backward_propagation(self, learning_rate, x_train, y_train):
+        x_train= x_train.reshape(-1, 1)
 
-        learning_rate = 0.01
-        gradient_o = np.multiply(d - self.y, 1)
-        D_o = learning_rate * (gradient_o @ self.z.T)
-        new_w2 = self.weights_l2 + D_o.T
-        new_bias2 = self.bias_l2 + learning_rate * gradient_o
-        self.weights_l2 = new_w2
-        self.bias_l2 = new_bias2
+        # Output Layer:
+        gradient_o = ((self.y - y_train)/self.m).astype(np.float64)
+        D_o = (learning_rate * np.dot(self.z2, gradient_o.T))
+        self.weight3 -= D_o
+        self.bias3 -= learning_rate * gradient_o
 
-        gradient_h = np.multiply(self.weights_l2 @ gradient_o, self.sigmoid_derivative(self.net_h))
-        D_h = learning_rate * gradient_h @ x.T
-        new_w1 = self.weights_l1 + D_h.T
-        new_bias1 = self.bias_l1 + learning_rate * gradient_h
-        self.weights_l1 = new_w1
-        self.bias_l1 = new_bias1
+        # Hidden Layer 2:
+        gradient_h2 = (np.dot(self.weight3, gradient_o) * self.relu_prime(self.net_h2))/self.m
+        D_h2 = (learning_rate * np.dot(self.z1, gradient_h2.T)).astype(np.float64)
+        self.weight2 -= D_h2
+        self.bias2 -= learning_rate * gradient_h2
 
-    def predict(self):
-        return self.propagation(self.input[0])
+        # Hidden Layer 1:
+        gradient_h1 = (np.dot(self.weight2, gradient_h2) * self.tanh_prime(self.net_h1))/self.m
+        D_h1 = (learning_rate * np.dot(x_train, gradient_h1.T)).astype(np.float64)
+        self.weight1 -= D_h1
+        self.bias1 -= learning_rate * gradient_h1
+    def loss(self, y_pred):
+        return np.mean((y_pred - self.y_train) ** 2)
+    def save_model(self, file_path):
+        np.savez(file_path, W1=self.weight1, b1=self.bias1, 
+                 W2=self.weight2, b2=self.bias2,
+                 W3 = self.weight3, b3 = self.bias3)
+        
+    def load_model(self, file_path):
+        with np.load(file_path) as data:
+            self.weight1 = data['W1']
+            self.bias1 = data['b1']
+            self.weight2 = data['W2']
+            self.bias2 = data['b2']
+            self.weight3 = data['W3']
+            self.bias3 = data['b3']
+    def fit(self, learning_rate, epochs, batch_size, x_train, y_train):
+        self.loss_lst = []
+        num_samples = len(x_train)
 
-    def errors(self, d):
-        return 0.5 * (d - self.y) ** 2
+        for epoch in range(epochs):
+            epoch_loss = 0
+            print(f'Epoch {epoch+1}/{epochs}')
 
-    def training(self):
-        epochs = 100
-        epsilon = 0.0000001
+            shuffled_indices = np.random.permutation(num_samples)
+            x_train_shuffled = x_train[shuffled_indices]
+            y_train_shuffled = y_train[shuffled_indices]
 
-        with open("./train.txt", 'w') as f:
-            for epoch in range(epochs):
-                print("Epoch:", epoch)
-                for k in range(self.m):
-                    self.propagation(self.x[:, k])
-                    e = self.errors(self.d[k])
-                    # print(self.predict())
-                    if e <= epsilon: 
-                        print(self.predict())
-                        f.write("Epoch %d\n" % epoch)
-                        f.write("Result 1: %d\n" % self.propagation(self.input[0]).item())
-                        f.write("Result 2: %d\n" % self.propagation(self.input[1]).item())
+            for i in range(0, num_samples, batch_size):
+                x_batch = x_train_shuffled[i:i + batch_size]
+                y_batch = y_train_shuffled[i:i + batch_size]
+            for i in range(x_batch.shape[0] - 1):
+                y_pred = self.forward_propagation(x_batch[i])
+                self.backward_propagation(learning_rate, x_batch[i], y_batch[i])
+                batch_loss = self.loss(y_pred)
+                epoch_loss += batch_loss
 
+            epoch_loss /= (num_samples / batch_size)
+            print(f"Train Loss: {epoch_loss}")
 
+            self.loss_lst.append(epoch_loss)
 
-                    
-                        f.write("Weights L1:\n")
-                        np.savetxt(f, self.weights_l1)
+        self.save_model("./train.npz")
 
-                        f.write("Weights L2:\n")
-                        np.savetxt(f, self.weights_l2)
-
-                        f.write("Bias L1:\n")
-                        np.savetxt(f, self.bias_l1)
-
-                        f.write("Bias L2:\n")
-                        np.savetxt(f, self.bias_l2)
-
-
-
-                self.backpropagation(self.d[k], self.x[:, k])
-
-
+    def predict(self, X):
+        self.forward_propagation(X)
+        return np.argmax(self.y, axis=0)
     def show_img(self):
-        plt.imshow(self.input[0].reshape((28, 28)), cmap="gray")
+        plt.imshow(self.conv1.reshape((28, 28)), cmap="gray")
         plt.show()
 
 
-predictor = Predict()
-predictor.show_img()
-predictor.training()
+# nn = NeuralNetwork()
+# pic = ImageProcessor(img_path=img_path, data_path= data_path)
+# img_gray = pic.img
+
+# cv1,cv2  = pic.model(img_gray)
+# nn.load_model("./train.npz")
+# nn.fit(0.1, 100, 32, x_train, y_train)
+
+
