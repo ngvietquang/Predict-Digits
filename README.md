@@ -61,6 +61,3 @@ Example log:
 ```bash
 python app.py
 
-### 1️⃣ Train the model
-```bash
-python train.py
