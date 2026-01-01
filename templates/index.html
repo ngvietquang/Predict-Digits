@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Digit Recognizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .canvas-container { border: 2px solid #334155; border-radius: 16px; overflow: hidden; box-shadow: 0 0 30px rgba(56, 189, 248, 0.15); }
+        canvas { cursor: crosshair; touch-action: none; background: black; }
+        canvas {
+            max-width: 100%;
+            height: auto; /* Giữ đúng tỉ lệ khung hình */
+            display: block;
+            margin: 0 auto;
+        }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        #previewImg { image-rendering: pixelated; border: 1px solid #38bdf8; background: black; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+<div class="glass max-w-md w-full p-8 rounded-[2rem] shadow-2xl">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">AI RECOGNIZER</h1>
+        <p class="text-slate-400 text-sm mt-2 font-medium uppercase tracking-widest">Handwritten Digit Analysis</p>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="mainCanvas" width="320" height="320"></canvas>
+    </div>
+
+    <div class="flex gap-4 mt-6">
+        <button id="clearBtn" class="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 transition-all font-bold text-slate-300 active:scale-95">DELETE</button>
+        <button id="predictBtn" class="flex-[2] py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:shadow-lg hover:shadow-blue-500/40 transition-all font-bold text-white active:scale-95 uppercase tracking-wider">PREDICT NOW</button>
+    </div>
+
+    <div class="mt-8 grid grid-cols-2 gap-4 items-center p-4 rounded-2xl bg-white/5 border border-white/10">
+        <div class="text-center">
+            <p class="text-[10px] text-blue-400 font-bold uppercase mb-1">Predict</p>
+            <div id="result" class="text-6xl font-black text-white">-</div>
+        </div>
+        <div class="border-l border-white/10 pl-4">
+            <p class="text-[10px] text-slate-500 font-bold uppercase">Reliability</p>
+            <div id="confidence" class="text-xl font-bold text-emerald-400">0%</div>
+            <p class="text-[10px] text-slate-500 mt-2 uppercase">Input 28x28</p>
+            <canvas id="outCanvas" width="28" height="28" class="hidden"></canvas>
+            <img id="previewImg" width="40" height="40" class="mt-1 rounded">
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.querySelector('#mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const outCanvas = document.querySelector('#outCanvas');
+    const outCtx = outCanvas.getContext('2d');
+    const resDiv = document.querySelector('#result');
+    const confDiv = document.querySelector('#confidence');
+    const preview = document.querySelector('#previewImg');
+
+    let drawing = false;
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 22;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        return [ (e.touches ? e.touches[0].clientX : e.clientX) - rect.left, (e.touches ? e.touches[0].clientY : e.clientY) - rect.top ];
+    };
+
+    const start = (e) => { drawing = true; draw(e); };
+    const end = () => { drawing = false; ctx.beginPath(); };
+
+    function draw(e) {
+        if (!drawing) return;
+        const [x, y] = getPos(e);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    }
+
+    canvas.onmousedown = start; canvas.onmousemove = draw; window.onmouseup = end;
+    canvas.ontouchstart = (e) => { start(e); e.preventDefault(); };
+    canvas.ontouchmove = (e) => { draw(e); e.preventDefault(); };
+
+    document.querySelector('#clearBtn').onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        resDiv.innerText = "-";
+        confDiv.innerText = "0%";
+    };
+
+    document.querySelector('#predictBtn').onclick = async () => {
+        // Rescale về 28x28 với padding 4px để giống MNIST
+        outCtx.fillStyle = 'black';
+        outCtx.fillRect(0, 0, 28, 28);
+        outCtx.drawImage(canvas, 0, 0, 320, 320, 0, 0, 28, 28);
+
+
+        const dataURL = outCanvas.toDataURL('image/png');
+        preview.src = dataURL;
+        resDiv.innerText = "...";
+
+        try {
+            const resp = await fetch('http://localhost:8000/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ data: dataURL })
+            });
+            const data = await resp.json();
+            resDiv.innerText = data.prediction;
+            confDiv.innerText = data.confidence + "%";
+        } catch (err) {
+            resDiv.innerText = "!";
+            console.error(err);
+        }
+    };
+</script>
+</body>
+</html>
