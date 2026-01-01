@@ -1,4 +1,4 @@
-# 🧠 Handwritten Digit Recognition from Scratch (NN + CV + Web)
+# 🧠 Handwritten Digit Recognition from Scratch (NN + Web)
 
 ## 📌 Overview
 This project implements a **handwritten digit recognition system from scratch**, without using deep learning frameworks such as TensorFlow or PyTorch.
@@ -10,7 +10,7 @@ The system includes:
 - A **Flask backend API**
 - An interactive **web drawing interface (HTML + Canvas)**
 
-The trained model achieves **~97% accuracy on MNIST** and correctly predicts handwritten digits drawn by users in real time.
+The trained model achieves **~95% accuracy on MNIST** and correctly predicts handwritten digits drawn by users in real time.
 
 ---
 
@@ -22,7 +22,7 @@ The trained model achieves **~97% accuracy on MNIST** and correctly predicts han
 - Loss function: **Categorical Cross-Entropy**
 - Training techniques:
   - Mini-batch training
-  - Early stopping at 97% accuracy
+  - Early stopping at 95% accuracy
 - Image preprocessing:
   - Thresholding
   - Bounding box extraction
@@ -50,7 +50,7 @@ The trained model achieves **~97% accuracy on MNIST** and correctly predicts han
 - Batch size: 64
 - Learning rate: tuned manually
 - Final result:
-  - **Accuracy ≈ 97%**
+  - **Accuracy ≈ 95%**
   - Training stopped automatically when reaching threshold
 
 Example log:
@@ -58,6 +58,7 @@ Example log:
 ---
 
 ## 🚀 How to Run
+```bash
 python app.py
 ### 1️⃣ Train the model
 ```bash
